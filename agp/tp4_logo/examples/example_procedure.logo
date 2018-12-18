@@ -1,0 +1,17 @@
+# Début du programme
+COLOR RED
+
+# Définition de la procédure Carre
+PROC Carre [
+  FORWARD 100
+  LEFT 90
+]
+
+FORWARD 200
+
+# Exécution de la procédure Carre
+Carre
+
+COLOR WHITE
+
+FORWARD 200

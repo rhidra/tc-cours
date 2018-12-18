@@ -1,0 +1,51 @@
+BACKGROUND_COLOR BLACK
+COLOR WHITE
+
+PROC rosace [
+  SIZE 2
+  COLOR 255+256*RANDOM[256]
+  REPEAT 18 [
+    RIGHT 20
+    REPEAT 18 [
+      RIGHT 20
+      FORWARD 20
+    ]
+  ]
+]
+
+REPEAT 6 [
+  COLOR 16776760 + RANDOM[300]
+  SIZE 5
+  FORWARD 500
+  rosace
+  RIGHT 144
+]
+ORIGIN LOOK_LEFT
+fleur_petite
+ORIGIN LOOK_LEFT
+fleur_grande
+
+PROC fleur_petite [
+SIZE 1
+  # Placement à l'origine pour la fleur
+  STOP
+  LOOK_DOWN FORWARD 115*2
+  LOOK_LEFT FORWARD 89*2
+  START LOOK_LEFT
+
+  # Dessin de la fleur
+  REPEAT 8 [LEFT 45 REPEAT 6 [REPEAT 90 [COLOR 16776760 + RANDOM[300] FORWARD 2*2 LEFT 2] LEFT 90]]
+]
+
+
+PROC fleur_grande [
+SIZE 1
+  # Placement à l'origine pour la fleur
+  STOP
+  LOOK_DOWN FORWARD 400
+  LOOK_LEFT FORWARD 108
+  START LOOK_LEFT
+
+  # Dessin de la fleur
+  REPEAT 8 [LEFT 45 REPEAT 6 [REPEAT 90 [COLOR 16776760 + RANDOM[300] FORWARD 2*4 LEFT 2] LEFT 90]]
+]

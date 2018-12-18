@@ -1,0 +1,52 @@
+Projet d'AGP - TP4 - TC-LOGO
+
+Par Rémy Hidra
+Groupe : 3TC - 3
+
+# Compilation et exécution
+
+Pour compiler le programme, exécutez "make". Un fichier tc-logo exécutable est créé.
+Pour exécuter le programme, le flux d'entrée doit être le programme TC_LOGO, et le flux
+de la sortie standard correspond au fichier SVG créé par le programme.
+Par exemple, dans un répertoire avec un fichier TC_LOGO appelé "fichier.logo",
+il est possible de faire "./tc-logo < fichier.logo > fichier.svg".
+Cela crée "fichier.svg" qui contient le code SVG créé par le programme.
+Le flux d'erreur contient les erreurs générées par le programme, ainsi que des
+informations utiles pour connaître l'évolution du programme.
+
+# Rôle des fichiers
+
+main.c :
+Contient le main du programme.
+
+logo.c et logo.h :
+Contient la structure intermédiaire dans laquelle est stockée le programme TC-LOGO
+avant l'écriture du fichier SVG.
+
+logo_parser.y et logo_parser.y :
+Fichiers de grammaire et d'analyse syntaxique de flex et bison. Parsent le flux
+d'entrée afin de créer l'arbre intermédiaire.
+
+logo_svg.c et logo_svg.h :
+Permettent d'écrire le code SVG correspondant à l'arbre intermédiaire.
+
+expression.c et expression.h :
+Contient le code relatif au système d'expression, c'est à dire le système
+d'opérations mathématiques entre nombres.
+
+Makefile :
+Permet de compiler le projet.
+
+tc-logo.sh :
+Script shell permettant, une fois le projet compilé, de lancer l'exécution du
+programme sur plusieurs fichiers TC-LOGO et de les afficher un par un. Le script
+utilise le programme feh, afin d'afficher des images au format SVG.
+Ce script permet simplement de faciliter l'utilisation du programme notamment
+sur plusieurs fichiers. S'utilise de la manière suivante :
+./tc-logo.sh <fichier1.logo> [<fichier2.logo> <fichier3.logo> ...]
+
+# Exemples
+
+Le projet contient quelques fichiers TC-LOGO d'example. Ceux-ci sont notamment
+utiles pour présenter les nouvelles fonctionnalités implémentées.
+Les exemples sont dans le sous-répertoire ./examples/ 

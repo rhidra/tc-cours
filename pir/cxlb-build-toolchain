@@ -1,0 +1,863 @@
+#!/bin/bash
+
+set -e
+
+# The following global variable is used as a mean to return a result
+# (with shell convention 0 for True, !=0 for False) from a function
+# without interfering with the 'set -e' setting. The other (intuitive
+# and initially used) way to do that would be to call the function in
+# a test context, but this as the nasty side-effect that then the 'set
+# -e' setting is ignored in all the function's inner code. See for
+# example
+# http://unix.stackexchange.com/questions/65532/why-does-set-e-not-work-inside
+# Thus, this looks like an ugly hack but it's the only way I've found
+# so far to ensure that 'set -e' is enforced everywhere.
+DO_P=1
+
+SCRIPTLOCATION=$(cd $(dirname "$0"); pwd)
+COMMANDLINE="$0 $@"
+BUILDTITLE="$(date -u) - $(uname -a) : $COMMANDLINE"
+
+DEFAULT_XILINX_LABTOOL_PACKAGE="Xilinx_LabTools_14.7_1015_1.tar"
+#DEFAULT_FTDI_DRIVER_PACKAGE="libftd2xx-x86_64-1.3.6.tgz"
+#DEFAULT_DIGILENT_RUNTIME_PACKAGE="digilent.adept.runtime_2.16.1-x86_64.tar.gz"
+#DEFAULT_DIGILENT_UTILITIES_PACKAGE="digilent.adept.utilities_2.2.1-x86_64.tar.gz"
+DEFAULT_FTDI_DRIVER_PACKAGE=""
+DEFAULT_DIGILENT_RUNTIME_PACKAGE="digilent.adept.runtime_2.16.1-2_amd64.deb"
+DEFAULT_DIGILENT_UTILITIES_PACKAGE="digilent.adept.utilities_2.2.1-amd64.deb"
+DEFAULT_DIGILENT_PLUGIN_PACKAGE="libCseDigilent_2.5.2-x86_64.tar.gz"
+DEFAULT_NUTAQ_ADP_PACKAGE="nutaq-adp6-microtca-sdk_6.6.0-2_amd64.deb"
+
+usage() {
+    cat <<EOF
+`basename $0` [options] <compile_dir> <install_dir>
+
+  parameters:
+
+    <compile_dir> : where to download / comile gnuradio and other
+                    packages
+    <install_dir> : where to install gnuradio and other packages
+
+  options:
+
+    -s <STEPS> : manually select the list of steps to execute (defaults:
+                 $STEPS)
+    -P : add nutaq steps ($NUTAQ_STEPS)
+    -p : pull latest updates from remote git repos
+    -i <FILE> : checkout packages versions from bundle file <FILE>
+    -n : no build, only repository operations
+    -N : no ckeckout from bundle file nor from defaults branch heads,
+         do not touch the source repositories
+    -F : when git checkout is done, use option -f to force
+    -c : clean build dir before build
+    -S : disable autodetection of num concurrent jobs for make, use 1
+    -d : build docs
+    -h : this help
+
+This scripts packages the cortexlab toolchain. It is for linux-amd64
+only.
+
+Prior to running it you must:
+
+- purge packages:
+
+  gnuradio-* libgruel-* libgruel* libgruel0* libgnuradio*
+  python-gnuradio*
+
+- install packages:
+
+  libfontconfig1-dev libxrender-dev libpulse-dev swig g++ automake
+  autoconf libtool python-dev libfftw3-dev libcppunit-dev
+  libboost-all-dev libusb-dev libusb-1.0-0-dev fort77 libsdl1.2-dev
+  python-wxgtk3.0 libqt4-dev python-numpy ccache python-opengl
+  libgsl0-dev python-cheetah python-lxml qt4-dev-tools libqwt5-qt4-dev
+  libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 cmake git-core
+  wget libxi-dev python-docutils gtk2-engines-pixbuf r-base-dev
+  python-tk liborc-0.4-0 liborc-0.4-dev libasound2-dev python-gtk2
+  libportaudio2 portaudio19-dev ca-certificates xalan libpcap0.8-dev
+  libmpfr4 libgmp10 expect fxload python-mako libcomedi-dev
+  liblog4cpp5-dev python-requests libgsl-dev libzmq3-dev
+
+- to build ctrlport you need (possibly from the testing / unstable /
+  experimental debian repositories, as thrift status in debian is
+  currently changing):
+
+  thrift-compiler python-thrift libthrift-dev
+
+- to build bokehgui, you need:
+
+  nodejs python-jinja2 python-dateutil python-yaml python-numpy
+  python-packaging python-six python-tornado python-futures
+  python-pandas python-psutil python-sphinx
+
+  and bokeh, currently not packaged, so install with pip, eg.:
+
+  $ pip install --user bokeh
+
+- to be able to build documentation, install packages:
+
+  doxygen python-sphinx texlive
+
+- for step xilinx you need to have
+
+  ${DEFAULT_XILINX_LABTOOL_PACKAGE}.tar.gz
+
+  in <compile_dir>/xilinx/
+
+- for step digilent you need to have
+
+  ${DEFAULT_FTDI_DRIVER_PACKAGE}.tgz
+  ${DEFAULT_DIGILENT_RUNTIME_PACKAGE}.tar.gz
+  ${DEFAULT_DIGILENT_UTILITIES_PACKAGE}.tar.gz
+  ${DEFAULT_DIGILENT_PLUGIN_PACKAGE}.tar.gz
+
+  in <compile_dir>/digilent/
+
+- for step nutaq you need to have
+
+  ${DEFAULT_NUTAQ_ADP_PACKAGE}.deb
+
+  in <compile_dir>/nutaq/
+
+EOF
+}
+
+package_banner() {
+    # display a build banner for a package.
+    # param 1: the string to display
+    echo -e "\n------------------------------------------------------------------------\n"
+    echo -e "$@"
+    echo -e "\n------------------------------------------------------------------------\n"
+}
+
+get_git_tag() {
+    # output to stdout the current git commit sha,
+    # or a pseudo dev commit + a display a warning on stderr if the tree was touched
+    # param 1: the git directory
+    DIR="$1"
+    pushd "$DIR" > /dev/null
+    if git diff-index --quiet HEAD ; then
+        TAG=$(git log --pretty=format:'%H' -n 1)
+    else
+        echo "ERROR: $dir working tree not commited" 1>&2
+        TAG=$(date +dev-%s)
+    fi
+    popd > /dev/null
+    echo "$TAG"
+}
+
+load_tag() {
+    KEY="$1"
+    DEFAULT="$2"
+    if [ "$BUNDLEIN" != "" ] ; then
+        TAG=$(sed -n "s/$KEY=\(.*\)/\1/p" "$BUNDLEIN")
+        if [ "$TAG" == "" ] ; then
+            TAG="$DEFAULT"
+        fi
+    else
+        TAG="$DEFAULT"
+    fi
+    echo "$TAG"
+}
+
+save_tag() {
+    KEY="$1"
+    TAG="$2"
+    if [ "$BUNDLEOUT" != "" ] ; then
+        echo "### output tag $TAG for $KEY to $BUNDLEOUT"
+        sed -i "/^$KEY=/d" "$BUNDLEOUT"
+        echo "$KEY=$TAG" >> "$BUNDLEOUT"
+    fi
+}
+
+update_git() {
+    # clone / update a git repository.
+    # Optionnaly pull from it.
+    # by default checkout a default branch,
+    # or a specific commit if a bundle file is read
+    # if $NOCHECKOUT, no checkout performed.
+    # outputs a line if a bundle file is written
+    # param 1: repository path/url
+    # param 2: the branch or commit to checkout
+    REPO="$1"
+    DEFAULTCHECKOUT="$2"
+    DIR=$(basename "$REPO")
+    DIR=${DIR%.git}.git
+    echo "### update_git from $REPO in $(readlink -f $DIR)"
+    if [ ! -d "$DIR" ] ; then
+        echo "### cloning $REPO in $DIR"
+        git clone --recurse-submodules "$REPO" "$DIR"
+        ( cd "$DIR" ; git submodule update --init )
+    fi
+    if [ "$NOCHECKOUT" != "0" ] ; then
+        echo "### checkout"
+        pushd "$DIR" > /dev/null
+        if [ "$FORCECHECOUT" == "0" ] ; then
+            git checkout -f $(load_tag "$DIR" "$DEFAULTCHECKOUT")
+        else
+            git checkout $(load_tag "$DIR" "$DEFAULTCHECKOUT")
+        fi
+        git submodule update --init
+        if [ $PULL -eq 0 ] ; then
+            echo "### pull"
+            git pull --recurse-submodules=on
+            git submodule update --init
+        fi
+        popd > /dev/null
+    fi
+    save_tag "$DIR" $(get_git_tag "$DIR")
+}
+
+cmake_build() {
+    # configure/make/install a package.
+    # param 1: the build path
+    # remaining params: cmake options
+    BUILDDIR="$1"
+    CMAKE_OPTS="$@"
+    echo "### cmake_build in $BUILDDIR with options $COMMON_CMAKE_OPTS $CMAKE_OPTS"
+    if [ "$CLEANBUILD" == "0" ] ; then
+        echo "### cleaning before build"
+        rm -rf "$BUILDDIR"
+    fi
+    mkdir -p "$BUILDDIR"
+    pushd "$BUILDDIR" > /dev/null
+    echo "### set environment"
+    eval "$SET_CXLB_TOOLCHAIN_ENV"
+    echo "### cmake"
+    cmake $COMMON_CMAKE_OPTS $CMAKE_OPTS ../
+    #make VERBOSE=1
+    echo "### make"
+    make -j $MAKE_NUM_CONCURRENT_JOBS
+    echo "### make install"
+    make install
+    popd > /dev/null
+}
+
+do_step_p() {
+    # using var $STEPS, return wether a step has to be executed
+    # param 1: step name
+    # returns 0 if step needs to be executed
+    echo $STEPS | grep -q '\(\s\|^\)'$1'\(\s\|$\)'
+}
+
+base_step() {
+    # checks if a step needs to be performed. If yes, display a step banner and return 0
+    # param 1: step name
+    STEP="$1"
+    if do_step_p "$STEP" ; then
+        package_banner "$STEP"
+        DO_P=0
+    else
+        DO_P=1
+    fi
+}
+
+git_step() {
+    # build step preamble: update git, and return 0 if the actual build has to proceed
+    # param 1: step name
+    # param 2: git repository url
+    # param 3: default branch or commit to checkout
+    STEP="$1"
+    REPOS="$2"
+    DEFAULTCHECKOUT="$3"
+    base_step "$STEP"
+    if [ "$DO_P" == 0 ] ; then
+        update_git "$REPOS" "$DEFAULTCHECKOUT"
+        if [ "$ONLYGIT" != "0" ] ; then
+            DO_P=0
+        else
+            DO_P=1
+        fi
+    fi
+}
+
+step() {
+    # build step preamble for steps without git
+    # param 1: step name
+    STEP="$1"
+    if [ "$ONLYGIT" != "0" ] ; then
+        base_step "$STEP"
+    fi
+}
+
+grc_build_block() {
+    # build a gnuradio-companion hierarchical block
+    # param 1: grc filename
+    GRC="$1"
+    STEM=${GRC%.grc}
+    echo "### build grc hier block $GRC"
+    echo "### set environment"
+    eval "$SET_CXLB_TOOLCHAIN_ENV"
+    echo "### grc compilation"
+    COUNT=1
+    until echo "### try $COUNT" && grcc -d . $STEM.grc || [ "$COUNT" -ge 20 ] ; do
+        COUNT=$((COUNT+1))
+    done
+    # compilation retried several times because grcc randomly fails since I added thrift libs for ctrlport :-/
+
+    # WARN: currently option -d does not work -> compiled .py and
+    # .py.xml go in ~/.grc_gnuradio, hence the following hack
+    echo "### bad grc compilation output directory hack"
+    cp ~/.grc_gnuradio/$STEM.py ~/.grc_gnuradio/$STEM.py.xml .
+
+    # the following hack to fix what seems to be a strange bug of
+    # grcc, which occurs only in some circumstances, where the python
+    # imports are not correct
+    echo "### fix compiled grc imports"
+    xalan -xsl $SCRIPTLOCATION/fix_xml.xsl -param pythondir "'$NEWPYTHONPATH'" -param modulename "'$STEM'" < $STEM.py.xml > $STEM.py.xml.tmp
+    mv $STEM.py.xml.tmp $STEM.py.xml
+
+    echo "### install compiled grc .py and xml in gnuradio"
+    cp $STEM.py "$NEWPYTHONPATH"
+    cp $STEM.py.xml $INSTALL_DIR/share/gnuradio/grc/blocks/
+}
+
+skip_annoying_prompts() {
+    # generate 50 sequences of (2000 newlines followed by 100 "Y")
+    for Y in $(seq 1 50) ; do
+        for X in $(seq 1 2000) ; do
+            echo
+        done
+        for X in $(seq 1 100) ; do
+            echo Y
+        done
+    done
+}
+
+find_files() {
+    DIR="$1" ; shift
+    FILES="$@"
+    find $DIR | grep -f <(echo "$FILES" | tr ' ' '\n')
+}
+
+NOCHECKOUT=1
+FORCECHECKOUT=1
+PULL=1
+NUTAQ_STEPS="xilinx digilent adp gr-cortexlab"
+STEPS="uhd rtl-sdr gnuradio gr-iqbal bladerf hackrf gr-osmosdr uhd-firmware fft-web gr-bokehgui"
+BUNDLEIN=""
+ONLYGIT=1
+CLEANBUILD=1
+LOG=0
+MAKE_NUM_CONCURRENT_JOBS=$(getconf _NPROCESSORS_ONLN)
+BUILD_DOC=1
+while getopts "PNFni:s:pcSdh" OPT; do
+    case $OPT in
+        P) STEPS="$STEPS $NUTAQ_STEPS" ;;
+        N) NOCHECKOUT=0 ;;
+        F) FORCECHECKOUT=0 ;;
+        n) ONLYGIT=0 ;;
+        i) BUNDLEIN=$(readlink -f "$OPTARG") ;;
+        s) STEPS="$OPTARG" ;;
+        p) PULL=0 ;;
+        c) CLEANBUILD=0 ;;
+        S) MAKE_NUM_CONCURRENT_JOBS=1 ;;
+        d) BUILD_DOC=0 ;;
+        h) usage ; exit 0 ;;
+        *) usage ; exit 1 ;;
+    esac
+done
+shift $((OPTIND-1))
+if [ $# -ne 2 ] ; then
+    usage
+    exit 1
+fi
+SOURCES_DIR="$(mkdir -p "$1" ; cd "$1" ; pwd)"
+INSTALL_DIR="$(mkdir -p "$2" ; cd "$2" ; pwd)"
+
+if [ $LOG -eq 0 ] ; then
+    mkdir -p "$INSTALL_DIR/share/$(basename $0)"
+    LOGFILE="$INSTALL_DIR/share/$(basename $0)/build.log"
+    echo "# $BUILDTITLE" >> "$LOGFILE"
+    exec > >(tee -a "$LOGFILE")
+    exec 2>&1
+fi
+
+mkdir -p "$INSTALL_DIR/share/$(basename $0)"
+BUNDLEOUT="$INSTALL_DIR/share/$(basename $0)/build.bundle"
+
+#COMMON_CMAKE_OPTS="-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR"
+COMMON_CMAKE_OPTS="-DCMAKE_INSTALL_PREFIX=$INSTALL_DIR"
+
+if [ "$BUNDLEOUT" != "" ] ; then
+    echo "# $BUILDTITLE" >> "$BUNDLEOUT"
+fi
+
+export NEWPYTHONPATH="$INSTALL_DIR/"$(python -c "import sys,os; print os.sep.join(['lib', 'python' + sys.version[:3], 'dist-packages'])")
+SET_CXLB_TOOLCHAIN_ENV=$(cat <<EOF
+export PYTHONPATH="$NEWPYTHONPATH\${PYTHONPATH:+:\${PYTHONPATH}}"
+export LD_LIBRARY_PATH="$INSTALL_DIR/lib\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export PATH="$INSTALL_DIR/bin\${PATH:+:\${PATH}}"
+export MANPATH="$INSTALL_DIR/share/man\${MANPATH:+:\${MANPATH}}"
+export PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig\${PKG_CONFIG_PATH:+:\${PKG_CONFIG_PATH}}"
+export CMAKE_MODULE_PATH="$INSTALL_DIR/lib/cmake\${CMAKE_MODULE_PATH:+:\${CMAKE_MODULE_PATH}}"
+for L in \$(find "$INSTALL_DIR/opt/Xilinx" -path '*/common/lib/lin64' 2>/dev/null) ; do export LD_LIBRARY_PATH="\$L\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}" ; done
+for P in \$(find "$INSTALL_DIR/opt/Xilinx" -path '*/common/bin/lin64' 2>/dev/null) ; do export PATH="\$P\${PATH:+:\${PATH}}" ; done
+for L in \$(find "$INSTALL_DIR/opt/Xilinx" -path '*/LabTools/lib/lin64' 2>/dev/null) ; do export LD_LIBRARY_PATH="\$L\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}" ; done
+for P in \$(find "$INSTALL_DIR/opt/Xilinx" -path '*/LabTools/bin/lin64' 2>/dev/null) ; do export PATH="\$P\${PATH:+:\${PATH}}" ; done
+export DIGILENT_ADEPT_CONF="$INSTALL_DIR/etc/digilent-adept.conf"
+export XLNX_DIGILENT_ADEPT_CONF="$INSTALL_DIR/etc/digilent-adept.conf"
+for L in \$(find "$INSTALL_DIR/opt/Nutaq" -path '*/sdk/lib64' 2>/dev/null) ; do export LD_LIBRARY_PATH="\$L\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}" ; done
+for P in \$(find "$INSTALL_DIR/opt/Nutaq" -path '*/sdk/bin' 2>/dev/null) ; do export PATH="\$P\${PATH:+:\${PATH}}" ; done
+EOF
+)
+
+if [ ! -d "$SOURCES_DIR" ] ; then
+    mkdir -p $SOURCES_DIR
+fi
+cd $SOURCES_DIR
+
+# ------------------------------------------------------------------------
+# uhd
+# http://code.ettus.com/redmine/ettus/projects/uhd/wiki (maintenant: http://files.ettus.com/manual/)
+# http://code.ettus.com/redmine/ettus/projects/uhd/wiki/UHD_Build
+# install des dépendances
+# aptitude install libboost-all-dev libusb-1.0-0-dev python-cheetah doxygen python-docutils
+# en réalité juste libusb-1.0-0-dev
+git_step "uhd" "git://github.com/EttusResearch/uhd.git" "maint"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build uhd.git/host/build
+fi
+
+# ------------------------------------------------------------------------
+# rtl-sdr osmocom
+# http://sdr.osmocom.org/trac/wiki/rtl-sdr
+git_step "rtl-sdr" "git://git.osmocom.org/rtl-sdr.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build rtl-sdr.git/build
+    mkdir -p "$INSTALL_DIR/etc/udev/rules.d/"
+    cp "$SOURCES_DIR/rtl-sdr.git/rtl-sdr.rules" "$INSTALL_DIR/etc/udev/rules.d/"
+fi
+
+# ------------------------------------------------------------------------
+# gnuradio
+# http://gnuradio.org/redmine/projects/gnuradio/wiki/InstallingGRFromSource#Installing-manually-from-source
+# http://gnuradio.org/redmine/projects/gnuradio/wiki/BuildGuide
+# http://gnuradio.org/doc/doxygen/build_guide.html
+# install des dépendances
+# aptitude install libfontconfig1-dev libxrender-dev libpulse-dev swig g++ automake autoconf libtool python-dev libfftw3-dev libcppunit-dev libboost-all-dev libusb-dev libusb-1.0-0-dev fort77 libsdl1.2-dev python-wxgtk2.8 git-core libqt4-dev python-numpy ccache python-opengl libgsl0-dev python-cheetah python-lxml doxygen qt4-dev-tools libusb-1.0-0-dev libqwt5-qt4-dev libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 cmake git-core wget libxi-dev python-docutils gtk2-engines-pixbuf r-base-dev python-tk liborc-0.4-0 liborc-0.4-dev libasound2-dev python-gtk2 libportaudio2 portaudio19-dev ca-certificates
+# en réalité juste libcppunit-dev fort77 libqt4-dev ccache libgsl0-dev qt4-dev-tools libqwt5-qt4-dev libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 r-base-dev liborc-0.4-dev portaudio19-dev
+git_step "gnuradio" "https://github.com/gnuradio/gnuradio.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build gnuradio.git/build
+    if [ "$BUILD_DOC" == "0" ] ; then
+        pushd gnuradio.git/build
+        ./run_sphinx_build.sh
+        cp -dR --preserve=all docs/sphinx/sphinx_out $INSTALL_DIR/share/doc/gnuradio-*
+        popd
+    fi
+fi
+
+# ------------------------------------------------------------------------
+# gr-bokehgui
+# https://github.com/kartikp1995/gr-bokehgui
+# install des dépendances
+# aptitude install nodejs python-jinja2 python-dateutil python-yaml python-numpy python-packaging python-six python-tornado python-futures python-pandas python-psutil python-sphinx
+# pip install [--user] bokehgui
+# utiliser le fork mimbert, incluant un fix pour la dernière version de bokeh
+git_step "gr-bokehgui" "https://github.com/mimbert/gr-bokehgui.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build gr-bokehgui.git/build
+fi
+
+# ------------------------------------------------------------------------
+# gr-iqbal
+# http://git.osmocom.org/gr-iqbal
+git_step "gr-iqbal" "git://git.osmocom.org/gr-iqbal.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    pushd gr-iqbal.git
+    git submodule init
+    git submodule update
+    popd
+    cmake_build gr-iqbal.git/build
+fi
+
+# ------------------------------------------------------------------------
+# bladeRF
+# http://www.nuand.com/bladeRF
+git_step "bladerf" "https://github.com/Nuand/bladeRF.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build bladeRF.git/host/build -DINSTALL_UDEV_RULES=ON -DUDEV_RULES_PATH="$INSTALL_DIR/etc/udev/rules.d/"
+fi
+
+# ------------------------------------------------------------------------
+# hackrf
+# https://github.com/mossmann/hackrf
+git_step "hackrf" "https://github.com/mossmann/hackrf.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build hackrf.git/host/build -DINSTALL_UDEV_RULES=ON -DUDEV_RULES_PATH="$INSTALL_DIR/etc/udev/rules.d/"
+fi
+
+# ------------------------------------------------------------------------
+# gr-osmosdr osmocom
+# http://sdr.osmocom.org/trac/wiki/GrOsmoSDR
+git_step "gr-osmosdr" "git://git.osmocom.org/gr-osmosdr.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build gr-osmosdr.git/build
+fi
+
+# ------------------------------------------------------------------------
+# uhd firmware update
+step "uhd-firmware"
+if [ "$DO_P" == 0 ] ; then
+    $INSTALL_DIR/lib/uhd/utils/uhd_images_downloader.py
+fi
+
+# ------------------------------------------------------------------------
+# fft-web
+git_step "fft-web" "https://github.com/CorteXlab/fft-web.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    pushd fft-web.git/grc
+    grc_build_block fft_web.grc
+    popd
+fi
+
+# ------------------------------------------------------------------------
+# xilinx
+# download Xilinx_LabTools_14.3_P.40xd.6.0.tar or
+# Xilinx_LabTools_14.7_1015_1.tar from
+# http://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/design-tools/v2012_3---14_3.html
+# (need an account)
+# see http://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/design-tools.html
+step "xilinx"
+if [ "$DO_P" == 0 ] ; then
+    pushd xilinx
+    # rm previous install (or installer will refuse to proceed)
+    echo "### clean install dir"
+    rm -rf "$INSTALL_DIR/opt/Xilinx"
+    TMPDIR="$(mkdir -p tmp ; cd tmp ; pwd)"
+    rm -f "$TMPDIR/batchscript"
+    XILINX_LABTOOL_PACKAGE=$(load_tag xilinx $DEFAULT_XILINX_LABTOOL_PACKAGE)
+    save_tag xilinx "$XILINX_LABTOOL_PACKAGE"
+    if [ ! -d "${XILINX_LABTOOL_PACKAGE}.extract" ] ; then
+        echo "### unpack xilinx"
+        mkdir "${XILINX_LABTOOL_PACKAGE}.extract"
+        tar -xC "${XILINX_LABTOOL_PACKAGE}.extract" -f "${XILINX_LABTOOL_PACKAGE}"
+    fi
+    cd ${XILINX_LABTOOL_PACKAGE}.extract/*/bin/lin64
+    echo "### create install script"
+    ./batchxsetup --samplebatchscript "$TMPDIR/batchscript"
+    echo "### patch install location in install script"
+    sed -i -e "s&destination_dir=.*&destination_dir=$INSTALL_DIR/opt/Xilinx&" "$TMPDIR/batchscript"
+    echo "### install"
+    skip_annoying_prompts | ./batchxsetup --batch "$TMPDIR/batchscript"
+    # fix libs shipped with xilinx conflicting with system libs
+    echo "### fix conflicting libraries installed by xilinx"
+    BADLIBS="libstdc++\.so.* libmpfr\.so.* libgmp\.so.* libusb-1.0\.so.*"
+    find_files $INSTALL_DIR/opt/Xilinx $BADLIBS | grep lin64 | xargs rm
+    # fix perms
+    echo "### fix permissions"
+    chmod -R go-w "$INSTALL_DIR/opt/Xilinx"
+    popd
+fi
+
+# ------------------------------------------------------------------------
+# xilinx-usb-driver
+# http://www.rmdir.de/~michael/xilinx/
+# git://git.zerfleddert.de/usb-driver
+# http://git.zerfleddert.de/cgi-bin/gitweb.cgi/usb-driver
+git_step "xilinx-usb-driver" "git://git.zerfleddert.de/usb-driver" "master"
+if [ "$DO_P" == 0 ] ; then
+    pushd usb-driver.git
+    echo "### compiling usb-driver"
+    make
+    echo "### copying libusb-driver.so to $INSTALL_DIR/lib/"
+    cp -a libusb-driver.so $INSTALL_DIR/lib/
+    echo "### generate $INSTALL_DIR/etc/udev/rules.d/libusb-driver.rules"
+    echo 'ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="03fd", MODE="666"' > "$INSTALL_DIR/etc/udev/rules.d/libusb-driver.rules"
+    XILINX_CABLE_FIRMWARE_PATH=$(echo $INSTALL_DIR/opt/Xilinx/*/LabTools/LabTools/bin/lin64/)
+    echo "### copy and patch $INSTALL_DIR/etc/udev/rules.d/xusbdfwu.rules pointing to $XILINX_CABLE_FIRMWARE_PATH"
+    sed -e 's/TEMPNODE/tempnode/' -e 's/SYSFS/ATTRS/g' -e 's/BUS/SUBSYSTEMS/' -e "s%/usr/share/%$XILINX_CABLE_FIRMWARE_PATH%" "$XILINX_CABLE_FIRMWARE_PATH/xusbdfwu.rules" > "$INSTALL_DIR/etc/udev/rules.d/xusbdfwu.rules"
+    popd
+fi
+
+# ------------------------------------------------------------------------
+# digilent
+# download digilent.adept.runtime_2.16.1-2_amd64.deb and
+# digilent.adept.utilities_2.2.1-amd64.deb from
+# https://reference.digilentinc.com/digilent_adept_2#adept_2_for_linux and
+# libCseDigilent_2.5.2-x86_64.tar.gz from
+# https://reference.digilentinc.com/digilent_plugin_xilinx_tools
+# and libftd2xx-x86_64-1.3.6.tgz from
+# http://www.ftdichip.com/Drivers/D2XX.htm
+step "digilent"
+if [ "$DO_P" == 0 ] ; then
+    pushd digilent
+
+    # FTDI driver
+    FTDI_DRIVER_PACKAGE=$(load_tag ftdi_driver $DEFAULT_FTDI_DRIVER_PACKAGE)
+    save_tag ftdi_driver "$FTDI_DRIVER_PACKAGE"
+    if [ "${FTDI_DRIVER_PACKAGE}" != "" ] ; then
+        if [ ! -d "${FTDI_DRIVER_PACKAGE}.extract" ] ; then
+            echo "### unpack FTDI driver"
+            mkdir "${FTDI_DRIVER_PACKAGE}.extract"
+            tar -xzC "${FTDI_DRIVER_PACKAGE}.extract" -f "${FTDI_DRIVER_PACKAGE}"
+        fi
+        echo "### install FTDI driver"
+        FTDILIB=$(echo ${FTDI_DRIVER_PACKAGE}.extract/release/build/libftd2xx.so.*)
+        if [[ ! -f "$FTDILIB" ]] ; then
+            FTDILIB=$(echo ${FTDI_DRIVER_PACKAGE}.extract/release/build/x86_64/libftd2xx.so.*)
+        fi
+        mkdir -p "$INSTALL_DIR/lib"
+        cp $FTDILIB "$INSTALL_DIR/lib"
+        ( cd "$INSTALL_DIR/lib" ; ln -fs $(basename $FTDILIB) libftd2xx.so )
+    fi
+
+    # digilent runtime
+    DIGILENT_RUNTIME_PACKAGE=$(load_tag digilent_runtime $DEFAULT_DIGILENT_RUNTIME_PACKAGE)
+    save_tag digilent_runtime "$DIGILENT_RUNTIME_PACKAGE"
+    if [[ "$DIGILENT_RUNTIME_PACKAGE" == *.deb ]]; then
+        DIGILENT_RUNTIME_METHOD="DEB"
+    else
+        DIGILENT_RUNTIME_METHOD="TGZ"
+    fi
+    if [ ! -d "${DIGILENT_RUNTIME_PACKAGE}.extract" ] ; then
+        echo "### unpack digilent runtime"
+        if [ "$DIGILENT_RUNTIME_METHOD" == "TGZ" ] ; then
+            mkdir "${DIGILENT_RUNTIME_PACKAGE}.extract"
+            tar -xzC "${DIGILENT_RUNTIME_PACKAGE}.extract" -f "${DIGILENT_RUNTIME_PACKAGE}"
+        else
+            dpkg -x "${DIGILENT_RUNTIME_PACKAGE}" "$DIGILENT_RUNTIME_PACKAGE.extract"
+        fi
+    fi
+    echo "### install digilent runtime"
+    (
+        if [ "$DIGILENT_RUNTIME_METHOD" == "TGZ" ] ; then
+            cd $DIGILENT_RUNTIME_PACKAGE.extract/*
+            mkdir -p "$INSTALL_DIR/etc" "$INSTALL_DIR/etc/udev/rules.d"
+            expect -c "set timeout 60 ; spawn ./install.sh datapath=$INSTALL_DIR/share/digilent/data libpath=$INSTALL_DIR/lib sbinpath=$INSTALL_DIR/sbin ; expect \"Update existing link for\" { send \"y\r\" ; exp_continue } \"In which directory should the Adept Runtime Configuration file be installed?\" { send \"$INSTALL_DIR/etc\r\" ; exp_continue } ;"
+            cp "52-digilent-usb.rules" "$INSTALL_DIR/etc/udev/rules.d/"
+            sed -i "s|/bin/dftdrvdtch|/sbin/dftdrvdtch|" "$INSTALL_DIR/etc/udev/rules.d/52-digilent-usb.rules"
+        else
+            cd "$DIGILENT_RUNTIME_PACKAGE.extract"
+            mkdir -p "$INSTALL_DIR/lib" "$INSTALL_DIR/sbin" "$INSTALL_DIR/share" "$INSTALL_DIR/etc" "$INSTALL_DIR/etc/udev/rules.d"
+            if [ "$FTDI_DRIVER_PACKAGE" != "" ] ; then
+                ( GLOBIGNORE="*/libftd2xx.so*" ; cp -a usr/lib64/digilent/adept/* "$INSTALL_DIR/lib" )
+            else
+                cp -a usr/lib64/digilent/adept/* "$INSTALL_DIR/lib"
+            fi
+            cp -a usr/sbin/* "$INSTALL_DIR/sbin"
+            cp -a usr/share/digilent "$INSTALL_DIR/share"
+            cp -a usr/share/doc "$INSTALL_DIR/share"
+            cp -a etc/digilent-adept.conf "$INSTALL_DIR/etc"
+            sed -i "s|^DigilentPath=.*\$|DigilentPath=$INSTALL_DIR/share/digilent|" "$INSTALL_DIR/etc/digilent-adept.conf"
+            sed -i "s|^DigilentDataPath=.*\$|DigilentDataPath=$INSTALL_DIR/share/digilent/adept/data|" "$INSTALL_DIR/etc/digilent-adept.conf"
+            cp -a etc/udev/rules.d/52-digilent-usb.rules "$INSTALL_DIR/etc/udev/rules.d"
+            sed -i "s|/usr/sbin/dftdrvdtch|$INSTALL_DIR/sbin/dftdrvdtch|" "$INSTALL_DIR/etc/udev/rules.d/52-digilent-usb.rules"
+        fi
+    )
+    # digilent utilities
+    DIGILENT_UTILITIES_PACKAGE=$(load_tag digilent_utilities $DEFAULT_DIGILENT_UTILITIES_PACKAGE)
+    save_tag digilent_utilities "$DIGILENT_UTILITIES_PACKAGE"
+    if [[ "$DIGILENT_UTILITIES_PACKAGE" == *.deb ]]; then
+        DIGILENT_UTILITIES_METHOD="DEB"
+    else
+        DIGILENT_UTILITIES_METHOD="TGZ"
+    fi
+    if [ ! -d "$DIGILENT_UTILITIES_PACKAGE.extract" ] ; then
+        echo "### unpack digilent utilities"
+        if [ "$DIGILENT_UTILITIES_METHOD" == "TGZ" ] ; then
+            mkdir "${DIGILENT_UTILITIES_PACKAGE}.extract"
+            tar -xzC "${DIGILENT_UTILITIES_PACKAGE}.extract" -f "${DIGILENT_UTILITIES_PACKAGE}"
+        else
+            dpkg -x "${DIGILENT_UTILITIES_PACKAGE}" "$DIGILENT_UTILITIES_PACKAGE.extract"
+        fi
+    fi
+    echo "### install digilent utilities"
+    (
+        if [ "$DIGILENT_UTILITIES_METHOD" == "TGZ" ] ; then
+            cd $DIGILENT_UTILITIES_PACKAGE.extract/*
+            mkdir -p "$INSTALL_DIR/bin" "$INSTALL_DIR/share/man/man1"
+            cp bin64/* "$INSTALL_DIR/bin"
+            cp man/*.1 "$INSTALL_DIR/share/man/man1"
+        else
+            cd "$DIGILENT_UTILITIES_PACKAGE.extract"
+            mkdir -p "$INSTALL_DIR/bin" "$INSTALL_DIR/share"
+            cp -a usr/bin/* "$INSTALL_DIR/bin"
+            cp -a usr/share/digilent "$INSTALL_DIR/share"
+            cp -a usr/share/doc "$INSTALL_DIR/share"
+            cp -a usr/share/man "$INSTALL_DIR/share"
+        fi
+    )
+    # digilent plugin to xilinx labtool to enable use of HS2 with impact
+    DIGILENT_PLUGIN_PACKAGE=$(load_tag digilent_plugin $DEFAULT_DIGILENT_PLUGIN_PACKAGE)
+    save_tag digilent_plugin "$DIGILENT_PLUGIN_PACKAGE"
+    if [ ! -d "$DIGILENT_PLUGIN_PACKAGE.extract" ] ; then
+        echo "### unpack digilent plugin"
+        mkdir "${DIGILENT_PLUGIN_PACKAGE}.extract"
+        tar -xzC "${DIGILENT_PLUGIN_PACKAGE}.extract" -f "${DIGILENT_PLUGIN_PACKAGE}"
+    fi
+    XILINX_PLUGIN_PATH=$(echo $INSTALL_DIR/opt/Xilinx/*/LabTools/LabTools/lib/lin64/plugins)
+    echo "### install digilent plugin $XILINX_PLUGIN_PATH"
+    mkdir -p $XILINX_PLUGIN_PATH/Digilent/libCseDigilent
+    cp ${DIGILENT_PLUGIN_PACKAGE}.extract/*/ISE14x/plugin/* $XILINX_PLUGIN_PATH/Digilent/libCseDigilent
+    popd
+fi
+
+# ------------------------------------------------------------------------
+# adp
+# download adp µtca debian package from http://nutaq.com/en/support/latest-utca-edition:
+# http://nutaq.com/sites/default/files/files-support/utca-6-5-0/nutaq-adp6-microtca-sdk_6.6.0-2_amd64.deb
+# http://nutaq.com/sites/default/files/files-support/utca-6-5-0/nutaq-adp6-microtca-sdk-6-5-0-1-amd64.deb
+# http://nutaq.com/sites/default/files/files-support/utca-6-4-0/nutaq-adp6-microtca-sdk_6-4-0-2_amd64.deb
+#TODO: add pathes
+step "adp"
+if [ "$DO_P" == 0 ] ; then
+    pushd nutaq
+    # adp software tools µtca
+    NUTAQ_ADP_PACKAGE=$(load_tag adp $DEFAULT_NUTAQ_ADP_PACKAGE)
+    save_tag adp "$NUTAQ_ADP_PACKAGE"
+    echo "### unpack adp debian package"
+    dpkg -x $NUTAQ_ADP_PACKAGE $INSTALL_DIR
+    # gr-nutaq
+    # ~/opt/gnuradio.test.adp/opt/Nutaq/ADP6/ADP_MicroTCA/sdk/gnuradio/gr-nutaq
+    echo "### patch gr-nutaq cmake files with actual install location"
+    sed -i -e "s*set(NUTAQ_SDKROOT \"/opt/Nutaq/ADP6/ADP_MicroTCA/sdk\")*set(NUTAQ_SDKROOT \"$INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk\")*" $INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk/gnuradio/gr-nutaq/lib/CMakeLists.txt
+    sed -i -e "s*set(NUTAQ_SDKROOT \"/opt/Nutaq/ADP6/ADP_MicroTCA/sdk\")*set(NUTAQ_SDKROOT \"$INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk\")*" $INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk/gnuradio/gr-nutaq/swig/CMakeLists.txt
+    echo "### replace GrPython.cmake shipped with ADP with the (more up to date) one from gnuradio"
+    cp -a $INSTALL_DIR/lib/cmake/gnuradio/GrPython.cmake $INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk/gnuradio/gr-nutaq/cmake/Modules/GrPython.cmake
+    echo "### build gr-nutaq"
+    cmake_build $INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk/gnuradio/gr-nutaq/build -DNUTAQ_SDKROOT="$INSTALL_DIR/opt/Nutaq/ADP6/ADP_MicroTCA/sdk"
+    popd
+fi
+
+# ------------------------------------------------------------------------
+# gr-cortexlab
+git_step "gr-cortexlab" "https://github.com/CorteXlab/gr-cortexlab.git" "master"
+if [ "$DO_P" == 0 ] ; then
+    cmake_build gr-cortexlab.git/build
+    pushd gr-cortexlab.git/grc
+    for GRC in *.grc ; do
+        grc_build_block $GRC
+    done
+    popd
+fi
+
+# ------------------------------------------------------------------------
+# generate conf files
+echo "### generate conf files"
+
+mkdir -p "$INSTALL_DIR/etc/ld.so.conf.d"
+
+ADDITIONAL_LIBS=""
+for L in $(find "$INSTALL_DIR/opt/Xilinx" -path '*/common/lib/lin64' 2>/dev/null) ; do ADDITIONAL_LIBS=$( echo -e "$L${ADDITIONAL_LIBS:+\n${ADDITIONAL_LIBS}}") ; done
+for L in $(find "$INSTALL_DIR/opt/Xilinx" -path '*/LabTools/lib/lin64' 2>/dev/null) ; do ADDITIONAL_LIBS=$( echo -e "$L${ADDITIONAL_LIBS:+\n${ADDITIONAL_LIBS}}") ; done
+for L in $(find "$INSTALL_DIR/opt/Nutaq" -path '*/sdk/lib64' 2>/dev/null) ; do ADDITIONAL_LIBS=$( echo -e "$L${ADDITIONAL_LIBS:+\n${ADDITIONAL_LIBS}}") ; done
+cat > "$INSTALL_DIR/etc/ld.so.conf.d/cxlb-toolchain.conf" <<EOF
+# ------------------------------------------------------------------------
+# library search path configuration for cortexlab toolchain installed
+# in $INSTALL_DIR
+# ------------------------------------------------------------------------
+
+$INSTALL_DIR/lib
+$ADDITIONAL_LIBS
+
+EOF
+
+mkdir -p "$INSTALL_DIR/bin"
+cat > "$INSTALL_DIR/bin/cxlb-toolchain-system-conf" <<EOF
+#!/bin/bash
+
+# ------------------------------------------------------------------------
+# script to be run as root to perform system-wide configurations
+# ------------------------------------------------------------------------
+
+cp "$INSTALL_DIR/etc/ld.so.conf.d/cxlb-toolchain.conf" "/etc/ld.so.conf.d/cxlb-toolchain.conf"
+ldconfig
+
+# - usrp:
+#
+#   optional steps:
+#
+#   - add group usrp:
+#
+#     $ addgroup usrp
+#
+#   - add needed users to this group:
+#
+#     $ adduser <login> usrp
+#
+#   - set some sysctl. In /etc/sysctl.conf:
+#
+#     net.core.rmem_max = 1000000
+#     net.core.wmem_max = 1000000
+#     kernel.shmmax = 2147483648
+#
+#     and for immediate setting:
+#
+#     $ sudo sysctl -w net.core.rmem_max=1000000 >/dev/null 2>&1
+#     $ sudo sysctl -w net.core.wmem_max=1000000 >/dev/null 2>&1
+#     $ sudo sysctl -w kernel.shmmax=2147483648  >/dev/null 2>&1
+#
+#   - set rtprio for members of group usrp. In /etc/security/limits.conf:
+#
+#     @usrp  - rtprio 50
+#
+#     (need to logout / login to activate this)
+
+# - rtl-sdr:
+
+if [ -f "$INSTALL_DIR/etc/udev/rules.d/rtl-sdr.rules" ] ; then
+  cp "$INSTALL_DIR/etc/udev/rules.d/rtl-sdr.rules" "/etc/udev/rules.d/rtl-sdr.rules"
+fi
+
+# - bladeRF:
+
+if [ -f "$INSTALL_DIR/etc/udev/rules.d/88-nuand.rules" ] ; then
+  cp "$INSTALL_DIR/etc/udev/rules.d/88-nuand.rules" "/etc/udev/rules.d/88-nuand.rules"
+fi
+
+# - hackrf:
+
+if [ -f "$INSTALL_DIR/etc/udev/rules.d/53-hackrf.rules" ] ; then
+  cp "$INSTALL_DIR/etc/udev/rules.d/53-hackrf.rules" "/etc/udev/rules.d/53-hackrf.rules"
+fi
+
+# - xilinx jtag usb cable
+
+if [ -f "$INSTALL_DIR/etc/udev/rules.d/libusb-driver.rules" ] ; then
+  cp "$INSTALL_DIR/etc/udev/rules.d/libusb-driver.rules" "/etc/udev/rules.d/libusb-driver.rules"
+fi
+if [ -f "$INSTALL_DIR/etc/udev/rules.d/xusbdfwu.rules" ] ; then
+  cp "$INSTALL_DIR/etc/udev/rules.d/xusbdfwu.rules" "/etc/udev/rules.d/xusbdfwu.rules"
+fi
+
+# - digilent HS2:
+
+if [ -f "$INSTALL_DIR/etc/udev/rules.d/52-digilent-usb.rules" ] ; then
+  cp "$INSTALL_DIR/etc/udev/rules.d/52-digilent-usb.rules" "/etc/udev/rules.d/52-digilent-usb.rules"
+fi
+
+# - if any udev rule was modified or added, reload rules:
+
+udevadm control --reload-rules
+
+EOF
+chmod a+x "$INSTALL_DIR/bin/cxlb-toolchain-system-conf"
+
+cat > "$INSTALL_DIR/bin/cxlb-toolchain-user-conf" <<EOF
+#!/bin/bash
+
+# ------------------------------------------------------------------------
+# script to be sourced by a user to configure its environment to use
+# the toolchain
+# ------------------------------------------------------------------------
+
+$SET_CXLB_TOOLCHAIN_ENV
+if [ -f "$INSTALL_DIR/lib/libusb-driver.so" ] ; then
+  export LD_PRELOAD="$INSTALL_DIR/lib/libusb-driver.so\${LD_PRELOAD:+:\${LD_PRELOAD}}"
+fi
+EOF
+
+cat <<EOF
+
+------------------------------------------------------------------------
+
+- look at, and run as root $INSTALL_DIR/bin/cxlb-toolchain-system-conf
+  for system-wide configurations to use the toolchain
+
+- source $INSTALL_DIR/bin/cxlb-toolchain-user-conf
+  for environment configuration to use the toolchain
+
+------------------------------------------------------------------------
+EOF

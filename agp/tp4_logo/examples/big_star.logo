@@ -1,0 +1,51 @@
+### Début du programme
+
+BACKGROUND_COLOR BLACK
+COLOR WHITE
+
+# draw_origin
+fleur
+ORIGIN LOOK_LEFT
+etoile
+
+### Procédures
+
+PROC draw_origin [
+  ORIGIN LOOK_LEFT
+  FORWARD 500
+  ORIGIN LOOK_UP
+  FORWARD 500
+  ORIGIN LOOK_DOWN
+  FORWARD 500
+  ORIGIN LOOK_RIGHT
+  FORWARD 500
+  ORIGIN LOOK_LEFT
+]
+
+PROC fleur [
+  # Placement à l'origine pour la fleur
+  STOP
+  LOOK_DOWN FORWARD 197*3
+  LOOK_RIGHT FORWARD 89*3
+  START LOOK_LEFT
+
+  # Dessin de la fleur
+  REPEAT 8 [LEFT 45 REPEAT 6 [REPEAT 90 [COLOR 16711935 + 256 * RANDOM[100] FORWARD 5*3 LEFT 2] LEFT 90]]
+]
+
+PROC rosace [
+  # Dessin de la rosace
+  COLOR RED
+  REPEAT 36 [RIGHT 10 REPEAT 8 [COLOR 255+256*RANDOM[256] FORWARD 5 LEFT 45]]
+]
+
+PROC etoile [
+  # Dessin de l'étoile
+  REPEAT 200 [
+    COLOR RANDOM + 16711680
+    LEFT 5
+    FORWARD RANDOM [600] + 400
+    rosace # On dessine une rosace sur chaque bout d'étoile
+    ORIGIN
+  ]
+]

@@ -1,0 +1,47 @@
+Easy : 3
+Medium : 3
+
+
+Premiere victoire => 2pts
+C'est du gateau => 4pts
+On est bien => 6pts
+habitué dans 7 langages
+
+=> 16pts
+
+Barème :
+2 pts = 1 easy X
+4 pts = 3 easy X
+6 pts = 3 medium X
+8 pts = 3 difficiles
+10pts = 3 très difficiles
+
+2 pts = habitué dans 1 langage  X
+4 pts = habitué dans 2 langages X
+6 pts = habitué dans 4 langages X
+8 pts = habitué dans 7 langages X
+10pts = habitué dans 12langages
+
+
+
+langages
+Défi 1
+php
+perl
+go
+C#
+bash
+
+Défi 2
+php
+perl
+go
+C#
+bash
+
+Défi 3
+php
+perl
+go
+C#
+bash

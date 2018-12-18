@@ -1,0 +1,1 @@
+cmd_/home/rhidra/sde/td6_kernel/fibdev/fibdev.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/rhidra/sde/td6_kernel/fibdev/fibdev.ko /home/rhidra/sde/td6_kernel/fibdev/fibdev.o /home/rhidra/sde/td6_kernel/fibdev/fibdev.mod.o ;  true
