@@ -1,0 +1,30 @@
+Image jpeg :
+- Original size : 4128256
+- Compressed size : 4098878
+- Uncompressed entropy : 7.9093934968200745
+- Compressed entropy : 7.994681643723529
+
+Image bmp :
+- Orignal size : 35597322
+- Compressed size : 31375124
+- Uncompressed entropy : 7.026135732411863
+- Compressed entropy : 7.9655591241347405
+
+Vidéo :
+- Original size : 155268382
+- Compressed size : 154134495
+- Uncompressed entropy : 7.918483003655572
+- Compressed entropy : 7.99064540386649
+
+PDF :
+- Original size : 313720
+- Compressed size : 315078
+- Uncompressed entropy : 7.987272510009847
+- Compressed entropy : 7.994681643723529
+
+
+Binary :
+- Original size : 26664
+- Compressed size : 18589
+- Uncompressed entropy : 5.205629464206276
+- Compressed entropy : 7.834108910179737
