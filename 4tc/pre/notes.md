@@ -5,7 +5,7 @@ State of the Art :
 
 ## Types de réseaux
 
-Neural Network :
+### Neural Network
 
 - Preprocessing
 - Feed forward
@@ -14,7 +14,7 @@ Neural Network :
 - Loss function
 - Backpropagation
 
-Convolutionnal Neural Network :
+### Convolutionnal Neural Network
 
 - Input volume (32x32x3) + X filters (5x5x3) ->
 - Stride ("Vitesse" de déplacement dans la convolution)
@@ -35,16 +35,27 @@ Pour limiter le nombre de paramètres à entrainer :
 - ResNet : "Deep Residual Learning for Image Recognition", He et al., 2015.
 - Inception V4 (Inception-ResNet)
 - Squeeze and Excitation module
-- Generative Adversarial Network
 - Progressive Neural Architecture Search
 
-Deep Belief Networks (DBN) & Deep Boltzmann Machines (DBM) :
+### Deep Belief Networks (DBN) & Deep Boltzmann Machines (DBM)
+
 - Based on the Restricted Boltzmann Machines (RBM)
-- 
+    - Undirected graphical model
+    - Stochastic visible (v) and hidden (h) variable, each v is connected to each h (bipartite graph)
+    - Fonction énergie (E) qui donne l'état préférentiel du système à son minimum
+    - A partir de exp(-E) on déduit la probabilité d'un état du système
+- Deep Belief Networks (DBN)
+    - Stack de RBM
+    - l hidden layer (h^k) donc DBN = [h⁰, h¹, h², ... h^(l), v] avec l'input x = h⁰
+    - L'output v est déterminé de manière probabiliste
 
-Stacked Autoencoders :
+### Stacked Autoencoders
 
-Récurrent Neural Network :
+### Generative Adversarial Networks
+
+### Capsule Networks
+
+### Récurrent Neural Network
 
 - "Multiple Object Recognition with Visual Attention", Ba et al.
 - "DRAW : A Recurrent Neural Network For Image Generation", Gregor et al.
