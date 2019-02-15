@@ -1,0 +1,23 @@
+Q1 méthodes de communication :
+- client-serveur
+- multicast (mais impossible en interopérateur)
+- broadcast (mais limité en sous-réseau)
+
+Q2 modèle de temps :
+asynchrone, pas de temps garanti, gigue
+
+Q3 Contraintes :
+TCP = protocole long, peut échouer si le réseau ou la machine ne fonctionnent pas
+
+- RPC : appel à une fonction sur le réseau en TCP
+- message queue (mq) : file d'attente de message
+
+Q5 : On lance le client qui se stoppe en attendant une réponse.
+Le server n'envoie pas de réponse et se bloque.
+En relançant le client, le server ne reçoit pas le message
+
+Même avec d'autres ports, le server ne reçoit aucun message supplémentaire après le premier.
+
+Domaines de communication :
+- Push / pull
+- Pub / sub
