@@ -99,10 +99,10 @@ def pollard_pm1(N, B=10):
 
 ##################################
 def fermat(N):
-    # to be completed Q4.3 #
+
     return
 
-if __name__ == "__main__":
+if __name__ == "_main__":
     print ("===== Q3.2======")
     print(cu.inverse(5, 51504))
     print(cu.inverse(7, 51504))
