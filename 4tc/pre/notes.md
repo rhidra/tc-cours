@@ -53,6 +53,13 @@ Pour limiter le nombre de paramètres à entrainer :
 
 ### Generative Adversarial Networks
 
+- Un modèle génératif et un modèle discriminant
+- Le modèle discriminant cherche à distinguer une vraie donnée d'une donnée générée par le modèle génératif
+- G le générateur et D le discriminant, x la data et p_g la data générée, z du bruit pour l'input :
+    - On entraine D à maximiser la probabilité D(x) que x appartienne à la data plutôt qu'à p_g
+    - On entraine G à minimiser log(1 - D(G(z)))
+- D est entrainé k fois, puis G est entrainé : permet de garder D proche de sa solution optimale pendant l'entrainement de G
+
 ### Capsule Networks
 
 ### Récurrent Neural Network

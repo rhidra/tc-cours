@@ -1,5 +1,0 @@
-x=2*pi*rand(100,1);
-t0 = rand(1);
-w = 2*pi*1000;
-
-y=sin(w*t0 + x)
