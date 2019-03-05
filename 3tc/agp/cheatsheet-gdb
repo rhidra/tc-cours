@@ -1,0 +1,26 @@
+gdb <filename>
+
+set disassemble-flavor intel = display fancier results
+disassemble main = desassemblage du fichier
+
+file <program>              = charge <program> en mémoire
+
+break *<adress>             = ajout breakpoint à l'adresse d'une instruction
+break <fonction>            = ajout breakpoint sur une fonction
+break <nb>                  = ajout breakpoint à une ligne du programme
+delete breakpoints <id>     = supprime le breakpoint d'id <id> (voir info breakpoints)
+
+run <params>                = lance le programante
+cont                        = continue le programme
+n                           = instruction suiv
+s                           = rentrer dans le bloc
+
+info register               = affiche valeurs registres
+info breakpoints            = affiche les breakpoints actuels
+backtrace                   = pile d'appel de fonction
+list                        = affiche les lignes autour du curseur
+
+print <var>                 = affiche la valeur de la variable
+watch <var>                 = stop à chaque changement de <var>
+
+quit                        = Quitter

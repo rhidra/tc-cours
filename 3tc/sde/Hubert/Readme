@@ -1,0 +1,16 @@
+Projet Hubert - SDE
+Par Rémy HIDRA et Claire LAVERNE
+Gr : 3TC - 3
+
+Le système est composé de trois programmes : Hubert, resto et user.
+
+Hubert est le serveur du système. Il doit obligatoirement être lancé en premier.
+
+Resto correspond à un type de restaurant connecté au système. Il ne peut y avoir que trois restaurants connectés au système.
+Un restaurant se démarre avec la commande "./resto <type>" avec <type> un entier de 1 à 3 inclus.
+
+User correspond au client du système. Il offre une interface pour l'utilisateur qui souhaite commander son plat.
+
+Le système fournit aussi un script de démarrage : ./start.sh
+Ce script démarre Hubert, trois restaurants et un client.
+Il est, bien sûr, recommandé d'ouvrir d'autres clients supplémentaires, pour essayer le système.

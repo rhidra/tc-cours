@@ -1,0 +1,9 @@
+public class EtudiantClient {
+    public static void main(String[] args) {
+        Etudiant e[] = {new Etudiant(10, "Toto", "Toto"), new Etudiant(11, "A", "B")};
+
+        for (Etudiant et : e) {
+            
+        }
+    }
+}

@@ -1,0 +1,13 @@
+4tc/pre/neural-style/
+4tc/pre/__pycache__/
+4tc/pre/tests/pytorch/images_classifier/data/
+
+4tc/cse/master_of_sorting/output_*
+4tc/cse/master_of_sorting/result_*
+4tc/cse/master_of_sorting/*.o
+
+4tc/cse/master_of_compression/*.o
+4tc/cse/master_of_compression/results.txt
+4tc/cse/master_of_compression/files/*
+
+4tc/syd/td1-zeromq/node_modules/*

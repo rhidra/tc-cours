@@ -1,0 +1,18 @@
+Name of kernel : uname -a ou uname -r
+
+/boot/vmlinuz-$(uname -r) : bootable kernel image
+/boot/config-$(uname -r) : record of config param 
+/boot/initrd-$(uname -r) : initial RAM disk, early root filesystem, allow to get device drivers
+System.map-$(uname -r) : symbol table
+grub/grub.cfg : GRUB bootloader configuration file, contains entries for installed kernel
+
+Kernel module : object file, can be load into the kernel, provides new functionnality to the kernel
+modules located in /lib/modules/$(uname -r)/kernel as .ko files
+
+lsmod : modules currently loaded
+modprobe <module> : load module
+modinfo <module> : info on the module
+
+/proc/kallsyms : 
+
+

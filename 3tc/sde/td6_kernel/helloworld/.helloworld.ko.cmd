@@ -1,0 +1,1 @@
+cmd_/home/rhidra/sde/td6_kernel/helloworld/helloworld.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/rhidra/sde/td6_kernel/helloworld/helloworld.ko /home/rhidra/sde/td6_kernel/helloworld/helloworld.o /home/rhidra/sde/td6_kernel/helloworld/helloworld.mod.o ;  true

@@ -1,0 +1,11 @@
+# lundi 4 juin 2018, 12:37:34 (UTC+0000) - Linux rhidra-PC 4.13.0-43-generic #48~16.04.1-Ubuntu SMP Thu May 17 12:56:46 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux : ./cxlb-build-toolchain build /opt/cortexlab/
+
+------------------------------------------------------------------------
+
+uhd
+
+------------------------------------------------------------------------
+
+### update_git from git://github.com/EttusResearch/uhd.git in /home/rhidra/pir/build/uhd.git
+### cloning git://github.com/EttusResearch/uhd.git in uhd.git
+Cloning into 'uhd.git'...
