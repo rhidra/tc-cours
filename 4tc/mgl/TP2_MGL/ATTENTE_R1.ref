@@ -14,12 +14,11 @@ VARIABLES
 INVARIANT  
    file : NATURAL +-> VAL
    & b1 : NATURAL & b2 : NATURAL
-
-/*
-   A COMPLETER 
-
-*/
-
+   & b2 >= b1
+   & dom(file) = b1..b2-1
+   
+   & nb_elem = b2-b1
+   & ran(file) = attente
 
 INITIALISATION 
    file := {} || b1:=1 || b2:=1

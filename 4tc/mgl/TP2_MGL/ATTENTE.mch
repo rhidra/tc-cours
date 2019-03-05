@@ -21,7 +21,11 @@ VARIABLES
    attente, nb_elem           
 
 INVARIANT  
-   attente <: VAL & nb_elem : NAT &  nb_elem <= nb_max & attente: FIN(attente)  & nb_elem=card(attente)
+   attente <: VAL 
+   & nb_elem : NAT 
+   & nb_elem <= nb_max 
+   & attente: FIN(attente)  
+   & nb_elem=card(attente)
 
 
 INITIALISATION 
@@ -29,19 +33,19 @@ INITIALISATION
 
 
 OPERATIONS  
-    nb <-- nb_attente =
-    BEGIN
+nb <-- nb_attente =
+   BEGIN
     	nb := nb_elem
 	END;
 
-	ajouter(vv)  =
+ajouter(vv)  =
 	PRE 
 	    vv : VAL & vv /:attente & nb_elem/=nb_max
     THEN 
         attente := attente \/ {vv}   || nb_elem:=nb_elem+1 
     END ;
 
-	vv <-- traiter  =
+vv <-- traiter  =
 	PRE  
 	    attente/={}
     THEN 

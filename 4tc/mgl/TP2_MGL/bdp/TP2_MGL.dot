@@ -1,0 +1,5 @@
+digraph {
+ATTENTE_R1 [ label=" ATTENTE\nATTENTE_R1 " shape= box ]
+Genealogie [ label=" Genealogie " shape= box ]
+
+}
