@@ -3,3 +3,14 @@
 4tc/pre/cifar-10-batches-py/
 4tc/csc/tp3/files/
 4tc/syd/td2bis-blockchain/
+4tc/pre/tests/pytorch/images_classifier/data/
+
+4tc/cse/master_of_sorting/output_*
+4tc/cse/master_of_sorting/result_*
+4tc/cse/master_of_sorting/*.o
+
+4tc/cse/master_of_compression/*.o
+4tc/cse/master_of_compression/results.txt
+4tc/cse/master_of_compression/files/*
+
+4tc/syd/td1-zeromq/node_modules/*

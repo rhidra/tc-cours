@@ -5,14 +5,41 @@ State of the Art :
 
 ## Types de réseaux
 
-### Neural Network
+### Artificial Neural Network
 
 - Preprocessing
 - Feed forward
-- Activation function
-- Learning rate
-- Loss function
+- Activation function :
+    - softmax : s_j(z) = exp(z_j) / SUM[ exp(z_k), k=0..K ] avec z={z_0, ..., z_K}
+      Permet de transformer un vecteur de score en un vecteur de probabilités
+    - reLU
+- Loss function :
+    - Hinge-loss / SVM : L_i = SUM[ max(0, s_j - s_y_i + 1), j!=y_i ]
+            L = (1/N) * SUM[ L_i, i=1..N ]
+    - cross-entropy / softmax : softmax(s, i) = exp(s_i) / SUM[ exp(s_k), k=0..K ] avec s={s_0, ..., s_K}
+      Permet de transformer un vecteur de score en un vecteur de probabilités
+      L_i = - log(softmax(s, i))
+- Regularization :
+    - Loss = L + Lambda*R(W)
+    - R(W) permet d'avoir des propriétés intéressantes sur W
+    - L2 Regularization (W préféré lorsque proche de 0, permet d'étaler W sur les dimensions et d'utiliser toutes les propriétés de l'image) : SUM[ SUM[ W_k_l², k ], l ]
+    - L1
+    - Max norm Regularization
+    - Dropout
 - Backpropagation
+    - Chain rule
+- Learning rate :
+    - momentum
+    - SGD : Stochastic Gradient Descent (W = W - learning_rate * grad)
+    - Nesterov-SGD
+    - Adam
+    - RMSProp
+- Mini-batch gradient descent :
+    - Lors de l'optimization, on optimise d'abord sur des petits échantillons différents des training data, pour approximer le gradient mais aller plus vite
+- Neuroévolution : Applications de d'algo génétiques pour entrainer un NN
+    - Alternative à la gradient descent et à la backpropagation
+    - Utile pour des tâches de Reinforcement Learning (jouer à des jeux-vidéos)
+    - Mais pas utile pour de l'image
 
 ### Convolutionnal Neural Network
 
@@ -51,6 +78,23 @@ Pour limiter le nombre de paramètres à entrainer :
 
 ### Stacked Autoencoders
 
+<<<<<<< HEAD
+=======
+- Autoencoder : Single layer NN où l'objectif est d'obtenir l'output le plus similaire à l'input possible
+- Stacked AE : plusieurs hidden layers
+- On peut ajouter du bruit à un input : permet de denoiser une image
+- Le training est différent d'un NN :
+    - On envoie un input noisé dans l'AE
+    - La loss function compare l'output avec l'input attendu
+    - On continue jusqu'à la convergence des coefficients
+    - Le nouvel input est alors le contenu des hidden layers
+- Applications :
+    - Système de compression d'image
+    - Apprentissage non supervisé
+    - On réutilise les coefs entrainés de l'AE dans un deep NN => Mieux que d'initialisé de façon aléatoire
+    - Denoiser
+
+>>>>>>> 687bc9dd80e86d2ed7fcc31cd2b8e3003c4f7a66
 ### Generative Adversarial Networks
 
 - Un modèle génératif et un modèle discriminant
@@ -62,6 +106,36 @@ Pour limiter le nombre de paramètres à entrainer :
 
 ### Capsule Networks
 
+<<<<<<< HEAD
+=======
+- Compense les problèmes des CNNs :
+    - Ne prend pas en compte les relations de translations et de rotations entre les neurones inférieurs et supérieurs
+      dans une convolution
+    - La solution est généralement les layers de pooling en augmentant le FOV des niveaux supérieurs
+- Le cerveau analyse une image et en reconstruit la structure et la géométrie de chaque élément
+  Donc sa compréhension d'une image ne dépend pas de l'angle de vue d'un objet, juste de sa structure.
+  CapsNet reprend ce concept.
+- Les capsules encodent la probabilité de détection d'une caractéristiques par la longueur d'un vecteur
+  et son état par la direction du vecteur.
+  Donc quand une feature se déplace sur l'image, la direction du vecteur change, mais pas sa longueur => invariance !
+- Capsule j :
+    - Input U1 = vecteur qui représente la proba + position d'une feature profonde (position/proba du nez)
+    - Multiplication par matrice W1j = W1j représente la relation entre la position/proba du nez et la tête.
+      Après multiplication, on a Û1 qui représente la position/proba de la tête en fonction de la pos/proba du nez
+      Il faut encore mettre en relation Û1 avec Û2 (position de la tête par rapport à la bouche), Û3 (par rapport aux yeux), etc.
+    - Multiplication scalaire à un poids C1 qui détermine l'importance du vecteur Û1 dans le calcul de la sortie de la capsule j.
+      Càd la proba que les informations sur un nez soient importantes pour déterminer une tête.
+      C1 est calculé par un algo de dynamic routing, pas par de la backpropagation !
+    - Somme de tous les inputs coefficientés, similaire à un neurone classique
+    - Fonction de squash non-linéaire
+- Dynamic routing :
+    - Algo pour estimer Cij en fonction de Ûij
+    - On calcule d'abord Vj la somme de tous les inputs coefficientés avec des Wij et des Cij initialisés
+    - La nouvelle valeur de Cij est le produit scalaire entre Vj et Ûij, soit une mesure de la similarité entre l'entrée et la sortie.
+    - On itère cet algo 3 fois
+- https://medium.com/ai%C2%B3-theory-practice-business/understanding-hintons-capsule-networks-part-ii-how-capsules-work-153b6ade9f66
+
+>>>>>>> 687bc9dd80e86d2ed7fcc31cd2b8e3003c4f7a66
 ### Récurrent Neural Network
 
 - "Multiple Object Recognition with Visual Attention", Ba et al.
