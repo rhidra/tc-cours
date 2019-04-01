@@ -7,15 +7,21 @@ State of the Art :
 
 ### Artificial Neural Network
 
-- Preprocessing
+- Data Preprocessing :
+    - Zero centered : soustrait la moyenne des pixels
+    - Zero centered by channel : soustrait la moyenne de chaque canal de pixels
+    - Normalization : Not common sur des images
 - Feed forward
-- Activation function :
-    - softmax : s_j(z) = exp(z_j) / SUM[ exp(z_k), k=0..K ] avec z={z_0, ..., z_K}
-      Permet de transformer un vecteur de score en un vecteur de probabilités
-    - reLU
+- Activation function : Améliore la stimulation du neurone lorsqu'il trouve quelque chose qui lui plaît
+                        Sans AF : NN équivalent à un classifieur linéaire
+    - Sigmoid / tanh : obsolètes car elles tuent le gradient, et non-zero centered
+    - ReLU = `max(0, x)` : standard, mais sature dans les négatifs
+    - Leaky ReLU = `max(0.1x, x)` ou `max(alpha*x, x)` avec alpha paramètre du NN
+    - Maxout = `max(W_1*x, W_2*x)`: Généralisation de ReLU, mais double le nombre de paramètre
+    - ELU
 - Loss function :
-    - Hinge-loss / SVM : L_i = SUM[ max(0, s_j - s_y_i + 1), j!=y_i ]
-            L = (1/N) * SUM[ L_i, i=1..N ]
+    - Hinge-loss / SVM : `L_i = SUM[ max(0, s_j - s_y_i + 1), j!=y_i ]`
+                         `L = (1/N) * SUM[ L_i, i=1..N ]`
     - cross-entropy / softmax : softmax(s, i) = exp(s_i) / SUM[ exp(s_k), k=0..K ] avec s={s_0, ..., s_K}
       Permet de transformer un vecteur de score en un vecteur de probabilités
       L_i = - log(softmax(s, i))
@@ -25,17 +31,35 @@ State of the Art :
     - L2 Regularization (W préféré lorsque proche de 0, permet d'étaler W sur les dimensions et d'utiliser toutes les propriétés de l'image) : SUM[ SUM[ W_k_l², k ], l ]
     - L1
     - Max norm Regularization
-    - Dropout
 - Backpropagation
     - Chain rule
-- Learning rate :
-    - momentum
+- Parameters Update (Learning rate) :
     - SGD : Stochastic Gradient Descent (W = W - learning_rate * grad)
+    - Momentum : `x = (v = mu*v - learning_rate*dx)` : Interprétation physique de l'accélératio (mu = friction)
     - Nesterov-SGD
-    - Adam
-    - RMSProp
+    - AdaGrad + RMSProp : Chaque paramètre a son propre learning rate
+                        cache = decay_rate * cache + (1-decay_rate) * dx
+                        x += - learning_rate * dx / (sqrt(cache) + 1e-7)
+    - Adam : Mélange entre RMSProp et Momentum
+    - Second order optimization : Permet d'éviter d'avoir un learning rate, mais nécessite plus de calculs
+        - Quasi-Newton method : BGFS
+        - L-BGFS : Limited Memory BGFS, efficace avec peu de data
+- Dropout :
+    - A chaque Forward pass, on génère un masque binaire pour éliminer des neurones aléatoirement
+    - Doit être fait à la forward et la backward pass
+    - Pdt test, il faut multiplier après l'AF par la proba du masque (`p=0.5`)
+    - Inverted dropout : On divise le masque par `p` pour laisser le test non changé
 - Mini-batch gradient descent :
     - Lors de l'optimization, on optimise d'abord sur des petits échantillons différents des training data, pour approximer le gradient mais aller plus vite
+- Initialisation des weights :
+    - Surtout pas à zéro !
+    - Random de petits nombres (`0.01*rand()`) : OK pour de petits réseaux
+    - Xavier Initialisation : Mieux mais ne fonctionne pas avec un AF non-linéaire (ReLU) sans  un facteur de 2 [Glorot et al., 2010] [He et al., 2015]
+    - Data driven initialisation (cf. stacked autoencoder)
+- Batch Normalization :
+    - Normalisation du batch sur les features
+    - S'insère entre les FC layers, avec l'AF
+    - Après la normalisation, on shift toute la data linéairement avec des paramètres sur lesquels on backprop : `y=a*norm(x)+n`
 - Neuroévolution : Applications de d'algo génétiques pour entrainer un NN
     - Alternative à la gradient descent et à la backpropagation
     - Utile pour des tâches de Reinforcement Learning (jouer à des jeux-vidéos)
@@ -43,7 +67,7 @@ State of the Art :
 
 ### Convolutionnal Neural Network
 
-- Input volume (32x32x3) + X filters (5x5x3) ->
+- Input volume (32x32x3) + 6 filters (5x5x3) ->  28x28x6
 - Stride ("Vitesse" de déplacement dans la convolution)
 - Padding
 - Pooling layer : Downsampling des layers (layer 224x224x64 -> 112x112x64)
@@ -132,10 +156,40 @@ Pour limiter le nombre de paramètres à entrainer :
 
 ### Récurrent Neural Network
 
+- Plusieurs configurations :
+    - one to one (vanillla)
+    - one to many (image captioning)
+    - many to one (sentiment analysis)
+    - many to many unsynchronised (translation)
+    - many to many synchronised (video analysis)
+- State du réseau h :
+    - `h = tanh(W_hh * h + W_xh * x)`
+    - `y = W_hy * h`
+    - `W_hh` : Matrice basée sur l'état précédent
+    - `W_xh` : Matrice basée sur l'input actuel
+    - `W_hy` : Matrice basée sur un mélange entre l'input et l'état du RNN
+    - `h` : vecteur d'état du RNN, initialisé à 0
+- Pour ajouter des couches :
+    - On empile les RNNs
+    - Ou LSTM
+- LSTM : on sélectionne grâce à des gates ce qu'on oublie ou rajoute dans un cell state `C`
+    - State vectors : `h_t` et `C_t`
+    - `f_t = sigm(W_f * [h_t-1, x_t] + b_f)` : gate d'oublie (forget)
+    - `i_t = sigm(W_i * [h_t-1, x_t] + b_i)` : gate d'ajout (input)
+    - `~C_t = tanh(W_C * [h_t-1, x_t] + b_C)` : ce qu'on ajoute
+    - `C_t = f_t * C_t-1 + i_t * ~C_t` : mise à jour de `C_t`
+    - `o_t = sigm(W_o * [h_t-1, x_t] + b_o)` : gate de ce qu'on garde pour la suite (output)
+    - `h_t = o_t * tanh(C_t)` : mise à jour de `h_t`
+- Il existe plusieurs variantes de LSTM :
+    - Peephole connections (Gers & Schmidhuber, 2000)
+    - Coupled forget and input gates (On oublie uniquement si on remplace par un input)
+    - GRU (Gated Recurrent Unit) (Cho, et al, 2014)
+
 - "Multiple Object Recognition with Visual Attention", Ba et al.
 - "DRAW : A Recurrent Neural Network For Image Generation", Gregor et al.
+- "The Unreasonable Effectiveness of Recurrent Neural Networks", Andrej Karpathy.
 - "Visualizing and Understanding Recurrent Networks", Andrej Karpathy, Justin Johnson, Li Fei-Fei.
-- Image captioning + Selective attention : "Show Attend and Tell", Xu et al., 2015.
+- "Image captioning + Selective attention : "Show Attend and Tell", Xu et al., 2015.
 - Formule de récurrence : LTSM (Hochreiter et al., 1997)
 - Variante de LSTM : "LSTM : A Search Space Odyssey", Greff et al., 2015. "An Empirical Exploration of Recurrent Network Architectures", Jozefowicz et al., 2015. "Learning phrase representations using mn encoder-decoder for statistical machine translation", Cho et al., 2014.
 
@@ -161,6 +215,14 @@ ConvNet in Practice :
 - Transfer Leanrning : "CNN Features off-the-shelf: an Astounding Baseline for Recognition", Razavian et al., 2014. "DeCAF: A Deep Convolutionnal Activation Feature for Generic Visual Recognition", Donahue, Jia et al., 2013.
 
 Training on large scale database : https://code.fb.com/ml-applications/advancing-state-of-the-art-image-recognition-with-deep-learning-on-hashtags/
+
+RNN with video :
+- Video classification : "Beyond short snippets: Deep networks for video classification", Ng et al., 2015.
+- Object tracking : "Learning a deep compact image representation for visual tracking", Wang et al., 2013.
+- Object tracking : "Spatially Supervised Recurrent Convolutional Networks for Visual Object Tracking", Ning et al., 2016.
+- Speech reconstruction : "Vid2speech: Speech Reconstruction from Silent Video", Ephrat et al., 2017.
+- Lip reading : "LipNet: Sentence-level Lipreading", Assael et al., 2016.
+- Lip reading : "Lip reading sentences in the wild", Chung et al., 2016.
 
 Deep Dream :
 - Présentation de GoogLeNet : "Going deeper with convolutions", Szegedy et al., 2014.
