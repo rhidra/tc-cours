@@ -30,7 +30,7 @@ State of the Art :
     - R(W) permet d'avoir des propriétés intéressantes sur W
     - L2 Regularization (W préféré lorsque proche de 0, permet d'étaler W sur les dimensions et d'utiliser toutes les propriétés de l'image) : SUM[ SUM[ W_k_l², k ], l ]
     - L1
-    - Max norm Regularization
+    - Max norm Regularization : seuil sur la norme des coefficients
 - Backpropagation
     - Chain rule
 - Parameters Update (Learning rate) :
@@ -60,10 +60,6 @@ State of the Art :
     - Normalisation du batch sur les features
     - S'insère entre les FC layers, avec l'AF
     - Après la normalisation, on shift toute la data linéairement avec des paramètres sur lesquels on backprop : `y=a*norm(x)+n`
-- Neuroévolution : Applications de d'algo génétiques pour entrainer un NN
-    - Alternative à la gradient descent et à la backpropagation
-    - Utile pour des tâches de Reinforcement Learning (jouer à des jeux-vidéos)
-    - Mais pas utile pour de l'image
 
 ### Convolutionnal Neural Network
 
@@ -115,15 +111,6 @@ Pour limiter le nombre de paramètres à entrainer :
     - Apprentissage non supervisé
     - On réutilise les coefs entrainés de l'AE dans un deep NN => Mieux que d'initialisé de façon aléatoire
     - Denoiser
-
-### Generative Adversarial Networks
-
-- Un modèle génératif et un modèle discriminant
-- Le modèle discriminant cherche à distinguer une vraie donnée d'une donnée générée par le modèle génératif
-- G le générateur et D le discriminant, x la data et p_g la data générée, z du bruit pour l'input :
-    - On entraine D à maximiser la probabilité D(x) que x appartienne à la data plutôt qu'à p_g
-    - On entraine G à minimiser log(1 - D(G(z)))
-- D est entrainé k fois, puis G est entrainé : permet de garder D proche de sa solution optimale pendant l'entrainement de G
 
 ### Capsule Networks
 
@@ -193,6 +180,13 @@ Pour limiter le nombre de paramètres à entrainer :
 - Formule de récurrence : LTSM (Hochreiter et al., 1997)
 - Variante de LSTM : "LSTM : A Search Space Odyssey", Greff et al., 2015. "An Empirical Exploration of Recurrent Network Architectures", Jozefowicz et al., 2015. "Learning phrase representations using mn encoder-decoder for statistical machine translation", Cho et al., 2014.
 
+### Neuroévolution
+
+- Applications de d'algo génétiques pour entrainer un NN
+- Alternative à la gradient descent et à la backpropagation
+- Utile pour des tâches de Reinforcement Learning (jouer à des jeux-vidéos)
+- Mais pas utile pour de l'image
+
 ## Techniques de Computer Vision
 
 Localization (Régression) :
@@ -210,13 +204,25 @@ Problem : output size variable
 
 ## Applications
 
-ConvNet in Practice :
+### Generative Adversarial Networks
+
+- Un modèle génératif et un modèle discriminant
+- Le modèle discriminant cherche à distinguer une vraie donnée d'une donnée générée par le modèle génératif
+- G le générateur et D le discriminant, x la data et p_g la data générée, z du bruit pour l'input :
+- On entraine D à maximiser la probabilité D(x) que x appartienne à la data plutôt qu'à p_g
+- On entraine G à minimiser log(1 - D(G(z)))
+- D est entrainé k fois, puis G est entrainé : permet de garder D proche de sa solution optimale pendant l'entrainement de G
+
+- Génération de visage HD : "Progressive Growing of GANs for Improved Quality, Stability and Variation", Karras et al., 2018.
+- Moteur graphique : "Video-to-Video Synthesis", Wang et al., 2018.
+
+### ConvNet in Practice
 - Preprocessing : Color jitter : Krizhevsky et al. 2012 (AlexNet)
 - Transfer Leanrning : "CNN Features off-the-shelf: an Astounding Baseline for Recognition", Razavian et al., 2014. "DeCAF: A Deep Convolutionnal Activation Feature for Generic Visual Recognition", Donahue, Jia et al., 2013.
 
 Training on large scale database : https://code.fb.com/ml-applications/advancing-state-of-the-art-image-recognition-with-deep-learning-on-hashtags/
 
-RNN with video :
+### RNN with video
 - Video classification : "Beyond short snippets: Deep networks for video classification", Ng et al., 2015.
 - Object tracking : "Learning a deep compact image representation for visual tracking", Wang et al., 2013.
 - Object tracking : "Spatially Supervised Recurrent Convolutional Networks for Visual Object Tracking", Ning et al., 2016.
@@ -224,10 +230,10 @@ RNN with video :
 - Lip reading : "LipNet: Sentence-level Lipreading", Assael et al., 2016.
 - Lip reading : "Lip reading sentences in the wild", Chung et al., 2016.
 
-Deep Dream :
+### Deep Dream / Deep Style
 - Présentation de GoogLeNet : "Going deeper with convolutions", Szegedy et al., 2014.
 - "A Neural Algorithm of Artistic Style", Gatys, Ecker, Bethge, 2015.
 - "Understanding Neural Networks Through Deep Visualization", Yosinski et al., 2015.
 
-Deep Stereo :
+### Deep Stereo
 - "DeepStereo: Learning to Predict New Views from the World's Imagery", John Flynn, Ivan Neulander, James Philbin, Noah Snavely, 2015.
