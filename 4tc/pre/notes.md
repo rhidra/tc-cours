@@ -102,6 +102,8 @@ Pour limiter le nombre de paramètres à entrainer :
 
 ### Stacked Autoencoders
 
+<<<<<<< HEAD
+=======
 - Autoencoder : Single layer NN où l'objectif est d'obtenir l'output le plus similaire à l'input possible
 - Stacked AE : plusieurs hidden layers
 - On peut ajouter du bruit à un input : permet de denoiser une image
@@ -116,6 +118,7 @@ Pour limiter le nombre de paramètres à entrainer :
     - On réutilise les coefs entrainés de l'AE dans un deep NN => Mieux que d'initialisé de façon aléatoire
     - Denoiser
 
+>>>>>>> 687bc9dd80e86d2ed7fcc31cd2b8e3003c4f7a66
 ### Generative Adversarial Networks
 
 - Un modèle génératif et un modèle discriminant
@@ -127,6 +130,8 @@ Pour limiter le nombre de paramètres à entrainer :
 
 ### Capsule Networks
 
+<<<<<<< HEAD
+=======
 - Compense les problèmes des CNNs :
     - Ne prend pas en compte les relations de translations et de rotations entre les neurones inférieurs et supérieurs
       dans une convolution
@@ -154,6 +159,7 @@ Pour limiter le nombre de paramètres à entrainer :
     - On itère cet algo 3 fois
 - https://medium.com/ai%C2%B3-theory-practice-business/understanding-hintons-capsule-networks-part-ii-how-capsules-work-153b6ade9f66
 
+>>>>>>> 687bc9dd80e86d2ed7fcc31cd2b8e3003c4f7a66
 ### Récurrent Neural Network
 
 - Plusieurs configurations :

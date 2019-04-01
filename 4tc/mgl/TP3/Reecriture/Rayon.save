@@ -1,0 +1,144 @@
+import java.util.ArrayList;
+import java.awt.*;
+import java.io.*;
+
+/**
+ * Rayon représente un rayon élémentaire caractérisé par
+ * un début et une fin. La fin d'un rayon peut-être l'intersection de ce dernier avec un élément.
+ * Inclue toutes les méthodes utiles pour tracer des rayons.
+ */
+
+public class Rayon {
+	public Vecteur start;
+	public Vecteur end;
+
+	// Indice du milieu dans lequel évolue le rayon
+	public double indiceMilieu;
+
+	// Nombre de rebonds maximals qu'un rayon peut effectuer
+	public static int MAX_BOUNCES = 10;
+
+	// La puissance correspond à l'intensité lors de l'affichage.
+	// puissance = 1 -> Rayon intense ||| puissance = 0 -> Rayon invisible
+	public double puissance = 1;
+
+	// La longueur maximale d'un rayon correspond à la diagonale de l'écran, le carré permet de rajouter une marge supplémentaire.
+	public static int LONGUEUR_MAX = 2*Simulation.WIDTH*Simulation.HEIGHT;
+
+	public Rayon(Vecteur start, Vecteur end, double indice, double puissance) {
+		this.start = start;
+		this.end = end;
+		this.indiceMilieu = indice;
+		this.puissance = puissance;
+	}
+
+	public Rayon() {
+		this.start = new Vecteur(0,0);
+		this.end = new Vecteur(1,0);
+	}
+
+	/**
+	 * Calcule tous les rayons créés par une source au point src, dans une direction dir
+	 * et dans un environnement constitués de obj[] Objets qui peuvent interagir avec des rayons.
+	 * La méthode utilise Objet.intersection(Rayon) pour calculer un point d'intersection.
+	 * Elle calcule ensuite un angle de réflection (s'il existe) et un angle de réfraction,
+	 * et fait repartir un rayon dans cette nouvelle direction.
+	 * L'algorithme utilisé fait apparaître de la récursivité, en se rappelant lui-même,
+	 * tant que le rayon traité rencontre des intersection dans son environnement.
+	 *
+	 * @param src Point d'origine du rayon.
+	 * @param dir Direction d'origine du rayon.
+	 * @param obj Ensemble des objets présents dans l'environnement
+	 *
+	 * @return Tableau des rayons créés par l'algorithme de traçage.
+	 */
+	public static ArrayList<Rayon> tracer(Vecteur src, Vecteur dir, double indice, Objet[] obj, int currentBounce, double power) {
+		ArrayList<Rayon> rayons = new ArrayList<Rayon>(1);
+
+		// On crée un rayon qui part à l'infini
+		Rayon r = rayonInfini(src, dir, indice, power);
+		rayons.add(r);
+
+				System.out.println("Rayon : " + r.start + " " + r.end);
+
+		Objet objIntersectantRayon = null;
+
+		for (Objet o : obj) {
+			System.out.println(o);
+
+			Vecteur endOld = r.end;
+			r.end = o.intersection(r);
+			if (r.start.equals(r.end)) {
+				r.end = endOld;
+			} else if (!endOld.equals(r.end)) {
+				objIntersectantRayon = o;
+			}
+		}
+		// A ce moment, r est le plus petit rayon qui n'intersecte rien
+		// objIntersectantRayon est l'objet qui est touché par le rayon
+
+		// Si le rayon a rencontré un objet sur sa course
+		if (objIntersectantRayon != null && currentBounce <= MAX_BOUNCES) {
+
+			// Si l'objet touché est un miroir
+			if (objIntersectantRayon instanceof Miroir) {
+				Vecteur dirReflect = dir.substract(objIntersectantRayon.direction.multiply(2*dir.scalaire(objIntersectantRayon.direction)));
+
+				// On calcule le nouveau rayon réfléchi et ses conséquences
+				// puis on l'ajoute aux rayons déjà calculés
+				rayons.addAll(tracer(r.end, dirReflect, r.indiceMilieu, obj, currentBounce+1, r.puissance));
+			}
+
+			// Si l'objet touché est un objet optique (lentille ou autre)
+			else if (objIntersectantRayon instanceof ObjetOptique) {
+				ObjetOptique o = (ObjetOptique)objIntersectantRayon;
+				Vecteur n = o.getNormale(r.end).vecteurNormalise();
+				n = (objIntersectantRayon.direction.scalaire(dir) > 0) ? n.opposite() : n;
+				// Réflexion
+				double angleIncident = dir.angle(n);
+				Vecteur dirReflect = dir.opposite().rotation(2*angleIncident);
+				rayons.addAll(tracer(r.end, dirReflect, r.indiceMilieu, obj, currentBounce+1, r.puissance/4));
+
+				// Réfraction
+				// Indice de réfraction
+				double n1 = r.indiceMilieu;
+				double n2 = (r.indiceMilieu == o.indice) ? Simulation.indiceEnvironnement : o.indice;
+
+				double c = - n.scalaire(dir);
+				double sq = 1 - (n1/n2)*(n1/n2)*(1-c*c);
+				if (sq >= 0) {
+					Vecteur dirRefract = dir.multiply(n1/n2).add(n.multiply((n1/n2) - Math.sqrt(sq))).vecteurNormalise();
+					rayons.addAll(tracer(r.end.add(dirRefract.multiply(0.001)), dirRefract, n2, obj, currentBounce+1, r.puissance));
+				}
+
+			}
+
+			// Si l'objet touché est un écran, il ne se passe rien
+			// Si l'objet touché est une source, il ne se passe rien
+		}
+
+		return rayons;
+	}
+
+	/**
+	 * Renvoie le rayon correspondant aux conditions de position et de direction donné
+	 * dont la fin se situe à l'infini.
+	 * @param src Point de départ du rayon.
+	 * @param dir Direction de départ du rayon.
+	 * @return Le rayon projeté à l'infini.
+	 */
+	 public static Rayon rayonInfini(Vecteur src, Vecteur dir, double indice, double puissance) {
+		 Rayon r = new Rayon(src, dir.multiply(LONGUEUR_MAX).add(src), indice, puissance);
+		 System.out.println(dir.multiply(LONGUEUR_MAX).add(src));
+		 return r;
+	 }
+
+     public void dessine(Graphics g) {
+		 g.setColor(new Color(g.getColor().getRed(), g.getColor().getGreen(), g.getColor().getBlue(), (int)(255*puissance)));
+         g.drawLine((int)start.x, (int)start.y, (int)end.x, (int)end.y);
+     }
+
+     public String toString() {
+		 return "Rayon:[debut="+start+";fin="+end+";indice="+indiceMilieu+";power="+puissance+"]";
+	 }
+}
