@@ -139,6 +139,7 @@ Pour limiter le nombre de paramètres à entrainer :
     - On calcule d'abord Vj la somme de tous les inputs coefficientés avec des Wij et des Cij initialisés
     - La nouvelle valeur de Cij est le produit scalaire entre Vj et Ûij, soit une mesure de la similarité entre l'entrée et la sortie.
     - On itère cet algo 3 fois
+- "Dynamic Routing Between Capsules", Hinton et al., 2017.
 - https://medium.com/ai%C2%B3-theory-practice-business/understanding-hintons-capsule-networks-part-ii-how-capsules-work-153b6ade9f66
 
 ### Récurrent Neural Network
