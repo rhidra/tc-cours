@@ -207,6 +207,8 @@ Problem : output size variable
 
 ### Generative Adversarial Networks
 
+- "Generative Adversarial Nets", Goodfellow et al., 2014.
+
 - Un modèle génératif et un modèle discriminant
 - Le modèle discriminant cherche à distinguer une vraie donnée d'une donnée générée par le modèle génératif
 - G le générateur et D le discriminant, x la data et p_g la data générée, z du bruit pour l'input :
