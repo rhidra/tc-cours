@@ -80,7 +80,7 @@ Pour limiter le nombre de paramètres à entrainer :
 - VGGNet : "Very Deep Convolutional Networks for Large Scale Image Recognition", Simonyan, Zisserman, 2015.
 - GoogLeNet : "Going deeper with convolutions", Szegedy et al., 2014.
 - ResNet : "Deep Residual Learning for Image Recognition", He et al., 2015.
-- Inception V4 (Inception-ResNet)
+- Inception-ResNet : “Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning”, Szegedy et al., 2016.
 - Squeeze and Excitation module
 - Progressive Neural Architecture Search
 
@@ -217,6 +217,7 @@ Problem : output size variable
 - D est entrainé k fois, puis G est entrainé : permet de garder D proche de sa solution optimale pendant l'entrainement de G
 
 - Génération de visage HD : "Progressive Growing of GANs for Improved Quality, Stability and Variation", Karras et al., 2018.
+- Super slow motion : "Super SloMo: High Quality Estimation of Multiple Intermediate Frames for Video Interpolation", Jiang et al., 2018.
 - Moteur graphique : "Video-to-Video Synthesis", Wang et al., 2018.
 
 ### ConvNet in Practice
